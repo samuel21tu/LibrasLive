@@ -63,8 +63,9 @@ impl Default for SttConfig {
                 .ok()
                 .filter(|value| value == "1")
                 .map(|_| {
-                    std::env::var("LIBRASLIVE_DEMO_TEXT")
-                        .unwrap_or_else(|_| "olá, este é um teste de reconhecimento de fala".to_string())
+                    std::env::var("LIBRASLIVE_DEMO_TEXT").unwrap_or_else(|_| {
+                        "olá, este é um teste de reconhecimento de fala".to_string()
+                    })
                 }),
         }
     }
@@ -90,7 +91,10 @@ impl TranscriptionEvent {
 
 /// Converte PCM16 (i16) para f32 normalizado, exigido pelo whisper.cpp.
 pub fn pcm_i16_to_f32(samples: &[i16]) -> Vec<f32> {
-    samples.iter().map(|sample| *sample as f32 / 32768.0).collect()
+    samples
+        .iter()
+        .map(|sample| *sample as f32 / 32768.0)
+        .collect()
 }
 
 struct Worker {
@@ -150,7 +154,9 @@ pub struct WhisperStream {
 
 impl WhisperStream {
     /// Cria o stream e devolve o receiver dos eventos (contrato 6.3).
-    pub fn create(config: SttConfig) -> Result<(Self, UnboundedReceiver<TranscriptionEvent>), SttError> {
+    pub fn create(
+        config: SttConfig,
+    ) -> Result<(Self, UnboundedReceiver<TranscriptionEvent>), SttError> {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 
         let context = if config.demo_text.is_some() {
@@ -235,7 +241,13 @@ impl WhisperStream {
         self.last_partial = self.segment_started;
     }
 
-    fn spawn_transcription(&mut self, audio: Vec<i16>, best_of: i32, is_final: bool, started: Instant) {
+    fn spawn_transcription(
+        &mut self,
+        audio: Vec<i16>,
+        best_of: i32,
+        is_final: bool,
+        started: Instant,
+    ) {
         let worker = Arc::clone(&self.worker);
         let tx = self.tx.clone();
         let inflight = Arc::clone(&self.partial_inflight);
@@ -256,7 +268,10 @@ impl WhisperStream {
                     }
                 }
                 Err(message) => {
-                    let _ = tx.send(TranscriptionEvent::Error { message, latency_ms });
+                    let _ = tx.send(TranscriptionEvent::Error {
+                        message,
+                        latency_ms,
+                    });
                 }
             }
             if !is_final {
@@ -322,7 +337,10 @@ mod tests {
             model_path: "/nao/existe/modelo.bin".into(),
             ..demo_config()
         };
-        assert!(matches!(WhisperStream::new(config), Err(SttError::ModelNotFound(_))));
+        assert!(matches!(
+            WhisperStream::new(config),
+            Err(SttError::ModelNotFound(_))
+        ));
     }
 
     #[test]

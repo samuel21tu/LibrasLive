@@ -101,13 +101,18 @@ impl HistoryStore {
                 })
             })
             .ok();
-        rows.map(|iter| iter.filter_map(Result::ok).collect()).unwrap_or_default()
+        rows.map(|iter| iter.filter_map(Result::ok).collect())
+            .unwrap_or_default()
     }
 
     pub fn get_preference(&self, chave: &str) -> Option<serde_json::Value> {
         let conn = self.conn.lock().unwrap();
         let valor: Option<String> = conn
-            .query_row("SELECT valor FROM preferencias WHERE chave = ?1", params![chave], |row| row.get(0))
+            .query_row(
+                "SELECT valor FROM preferencias WHERE chave = ?1",
+                params![chave],
+                |row| row.get(0),
+            )
             .ok();
         valor.and_then(|texto| serde_json::from_str(&texto).ok())
     }
@@ -176,7 +181,12 @@ impl HistoryStore {
             let _ = fs::create_dir_all(parent);
         }
         let temporario = self.json_path.with_extension("json.tmp");
-        if fs::write(&temporario, serde_json::to_string_pretty(&snapshot).unwrap_or_default()).is_ok() {
+        if fs::write(
+            &temporario,
+            serde_json::to_string_pretty(&snapshot).unwrap_or_default(),
+        )
+        .is_ok()
+        {
             let _ = fs::rename(&temporario, &self.json_path);
         }
     }
@@ -196,7 +206,8 @@ mod tests {
 
     #[test]
     fn sqlite_history_is_mirrored_to_json() {
-        let diretorio = std::env::temp_dir().join(format!("libraslive-history-test-{}", std::process::id()));
+        let diretorio =
+            std::env::temp_dir().join(format!("libraslive-history-test-{}", std::process::id()));
         let _ = fs::create_dir_all(&diretorio);
         let db = diretorio.join("history.sqlite");
         let json = diretorio.join("config.json");
@@ -211,7 +222,10 @@ mod tests {
         assert_eq!(lista.len(), 1);
         assert_eq!(lista[0].texto, "olá");
         assert_eq!(lista[0].latency_ms, Some(321));
-        assert_eq!(store.get_preference("tamanho"), Some(serde_json::json!(0.8)));
+        assert_eq!(
+            store.get_preference("tamanho"),
+            Some(serde_json::json!(0.8))
+        );
 
         let espelho: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&json).unwrap()).unwrap();

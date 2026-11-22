@@ -216,7 +216,10 @@ fn boot_backend(state: &mut RuntimeState) -> bool {
 }
 
 #[tauri::command]
-fn get_state(window: WebviewWindow, state: State<'_, Mutex<RuntimeState>>) -> Result<OverlayState, String> {
+fn get_state(
+    window: WebviewWindow,
+    state: State<'_, Mutex<RuntimeState>>,
+) -> Result<OverlayState, String> {
     let guard = state.lock().map_err(|error| error.to_string())?;
     Ok(build_state(&window, &guard))
 }
@@ -273,7 +276,11 @@ fn resize_window(
     window
         .set_size(PhysicalSize::new(width, height))
         .map_err(|error| error.to_string())?;
-    let corner = state.lock().map_err(|error| error.to_string())?.config.canto;
+    let corner = state
+        .lock()
+        .map_err(|error| error.to_string())?
+        .config
+        .canto;
     apply_corner(&window, corner);
     let guard = state.lock().map_err(|error| error.to_string())?;
     Ok(build_state(&window, &guard))
@@ -283,7 +290,10 @@ fn resize_window(
 fn drag_window(window: WebviewWindow, delta_x: i32, delta_y: i32) -> Result<(), String> {
     let position = window.outer_position().map_err(|error| error.to_string())?;
     window
-        .set_position(PhysicalPosition::new(position.x + delta_x, position.y + delta_y))
+        .set_position(PhysicalPosition::new(
+            position.x + delta_x,
+            position.y + delta_y,
+        ))
         .map_err(|error| error.to_string())
 }
 
@@ -343,7 +353,11 @@ fn set_always_on_top(
 
 #[tauri::command]
 fn get_config(state: State<'_, Mutex<RuntimeState>>) -> Result<PanelConfig, String> {
-    Ok(state.lock().map_err(|error| error.to_string())?.config.clone())
+    Ok(state
+        .lock()
+        .map_err(|error| error.to_string())?
+        .config
+        .clone())
 }
 
 #[tauri::command]

@@ -11,9 +11,7 @@
 
 pub mod whisper;
 
-pub use whisper::{
-    pcm_i16_to_f32, SttConfig, SttError, TranscriptionEvent, WhisperStream,
-};
+pub use whisper::{pcm_i16_to_f32, SttConfig, SttError, TranscriptionEvent, WhisperStream};
 
 /// Sample rate canônico (contrato 6.3).
 pub const SAMPLE_RATE: u32 = 16_000;

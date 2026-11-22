@@ -61,6 +61,8 @@ mod tests {
             .map(|token| token.pose_id.as_str())
             .collect();
         assert!(!dedos.is_empty());
-        assert!(dedos.iter().all(|id| id.chars().all(|c| c.is_lowercase() || c == '-')));
+        assert!(dedos
+            .iter()
+            .all(|id| id.chars().all(|c| c.is_lowercase() || c == '-')));
     }
 }

@@ -80,7 +80,10 @@ impl VadDetector for EnergyVad {
     }
 
     fn probability(&mut self, window: &[f32; VAD_WINDOW]) -> f32 {
-        let sum: f64 = window.iter().map(|value| *value as f64 * *value as f64).sum();
+        let sum: f64 = window
+            .iter()
+            .map(|value| *value as f64 * *value as f64)
+            .sum();
         let rms = (sum / VAD_WINDOW as f64).sqrt();
         let db = 20.0 * (rms + 1e-9).log10();
         let normalized = ((db + 60.0) / 40.0) as f32;
@@ -141,14 +144,18 @@ impl VadDetector for SileroVad {
                 return 0.0;
             }
         };
-        let state = match ort::value::Tensor::from_array(([2usize, 1usize, 128usize], self.state.clone())) {
+        let state = match ort::value::Tensor::from_array((
+            [2usize, 1usize, 128usize],
+            self.state.clone(),
+        )) {
             Ok(value) => value,
             Err(error) => {
                 warn!(error = %error, "silero state tensor falhou");
                 return 0.0;
             }
         };
-        let sample_rate = match ort::value::Tensor::from_array(([1usize], vec![SAMPLE_RATE as i64])) {
+        let sample_rate = match ort::value::Tensor::from_array(([1usize], vec![SAMPLE_RATE as i64]))
+        {
             Ok(value) => value,
             Err(error) => {
                 warn!(error = %error, "silero sr tensor falhou");
@@ -196,7 +203,10 @@ pub fn create_vad(config: &VadConfig) -> Result<Box<dyn VadDetector>, VadError> 
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VadEvent {
-    SpeechStart { at_sample: u64, at_ms: u128 },
+    SpeechStart {
+        at_sample: u64,
+        at_ms: u128,
+    },
     SpeechEnd {
         at_sample: u64,
         at_ms: u128,
@@ -242,7 +252,8 @@ impl VoiceActivitySegmenter {
 
     /// Recebe PCM16 mono 16 kHz (qualquer tamanho) e devolve eventos concluídos.
     pub fn feed(&mut self, samples: &[i16]) -> Vec<VadEvent> {
-        self.carry.extend(samples.iter().map(|value| *value as f32 / 32768.0));
+        self.carry
+            .extend(samples.iter().map(|value| *value as f32 / 32768.0));
         let mut events = Vec::new();
 
         while self.carry.len() >= VAD_WINDOW {
@@ -373,9 +384,14 @@ mod tests {
         assert!(segmenter.current_segment().is_some());
         let tail = segmenter.force_end().expect("deve fechar segmento ativo");
         match tail {
-            VadEvent::SpeechEnd { pcm, duration_ms, .. } => {
+            VadEvent::SpeechEnd {
+                pcm, duration_ms, ..
+            } => {
                 assert_eq!(pcm.len(), VAD_WINDOW * 3);
-                assert_eq!(duration_ms, (VAD_WINDOW * 3) as u128 * 1000 / SAMPLE_RATE as u128);
+                assert_eq!(
+                    duration_ms,
+                    (VAD_WINDOW * 3) as u128 * 1000 / SAMPLE_RATE as u128
+                );
             }
             _ => panic!("evento inesperado"),
         }
@@ -384,10 +400,8 @@ mod tests {
 
     #[test]
     fn silence_does_not_start_segment() {
-        let mut segmenter = VoiceActivitySegmenter::new(
-            Box::new(FixedVad(0.0)),
-            VadConfig::default(),
-        );
+        let mut segmenter =
+            VoiceActivitySegmenter::new(Box::new(FixedVad(0.0)), VadConfig::default());
         let events = segmenter.feed(&vec![0i16; VAD_WINDOW * 10]);
         assert!(events.is_empty());
         assert!(!segmenter.is_speech_active());

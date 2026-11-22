@@ -140,7 +140,9 @@ fn mono_u8(data: &[u8], channels: usize) -> Vec<i16> {
 }
 
 fn preferred_device(host: &cpal::Host, hint: Option<&str>) -> Result<Device, AudioError> {
-    let devices = host.devices().map_err(|error| AudioError::Configs(error.to_string()))?;
+    let devices = host
+        .devices()
+        .map_err(|error| AudioError::Configs(error.to_string()))?;
     let mut fallback: Option<Device> = None;
     for device in devices {
         let name = device.to_string();
@@ -150,7 +152,11 @@ fn preferred_device(host: &cpal::Host, hint: Option<&str>) -> Result<Device, Aud
             }
         }
         let lower = name.to_lowercase();
-        if lower.contains("monitor") || lower.contains("loopback") || lower.contains("stereo mix") || lower.contains("virtual") {
+        if lower.contains("monitor")
+            || lower.contains("loopback")
+            || lower.contains("stereo mix")
+            || lower.contains("virtual")
+        {
             return Ok(device);
         }
         if fallback.is_none() {
@@ -160,10 +166,7 @@ fn preferred_device(host: &cpal::Host, hint: Option<&str>) -> Result<Device, Aud
     fallback.ok_or_else(|| AudioError::NoDevice("cpal não listou dispositivos de entrada".into()))
 }
 
-fn build_cpal_stream(
-    device: &Device,
-    framer: Arc<Mutex<Framer>>,
-) -> Result<Stream, AudioError> {
+fn build_cpal_stream(device: &Device, framer: Arc<Mutex<Framer>>) -> Result<Stream, AudioError> {
     let config = StreamConfig {
         channels: CHANNELS,
         sample_rate: SAMPLE_RATE,
@@ -215,7 +218,11 @@ fn build_cpal_stream(
             |error| warn!(error = %error, "cpal input error"),
             None,
         )?,
-        other => return Err(AudioError::InvalidConfig(format!("formato cpal não suportado: {other:?}"))),
+        other => {
+            return Err(AudioError::InvalidConfig(format!(
+                "formato cpal não suportado: {other:?}"
+            )))
+        }
     };
     Ok(stream)
 }
@@ -240,7 +247,10 @@ fn pulse_monitor_source() -> Option<String> {
     }
     sources.lines().find_map(|line| {
         let fields: Vec<&str> = line.split_whitespace().collect();
-        fields.get(1).filter(|name| name.contains(".monitor")).map(|name| (*name).to_string())
+        fields
+            .get(1)
+            .filter(|name| name.contains(".monitor"))
+            .map(|name| (*name).to_string())
     })
 }
 
@@ -267,17 +277,23 @@ fn ffmpeg_presets(config: &CaptureConfig) -> Vec<CaptureBackend> {
         if let Some(source) = pulse_monitor_source() {
             presets.push(CaptureBackend::FfmpegPulse { source });
         }
-        presets.push(CaptureBackend::FfmpegPulse { source: "default".into() });
+        presets.push(CaptureBackend::FfmpegPulse {
+            source: "default".into(),
+        });
     } else if cfg!(target_os = "windows") {
         let mut candidates = vec!["virtual-audio-capturer", "Stereo Mix", "Mixagem estéreo"];
         if let Some(hint) = &config.device_hint {
             candidates.insert(0, hint.as_str());
         }
         for device in candidates {
-            presets.push(CaptureBackend::FfmpegDshow { device: device.into() });
+            presets.push(CaptureBackend::FfmpegDshow {
+                device: device.into(),
+            });
         }
     } else {
-        presets.push(CaptureBackend::FfmpegPulse { source: "default".into() });
+        presets.push(CaptureBackend::FfmpegPulse {
+            source: "default".into(),
+        });
     }
     presets
 }
@@ -294,9 +310,16 @@ fn ffmpeg_args(backend: &CaptureBackend) -> Vec<String> {
             args.extend(["-f".into(), "pulse".into(), "-i".into(), source.clone()]);
         }
         CaptureBackend::FfmpegDshow { device } => {
-            args.extend(["-f".into(), "dshow".into(), "-i".into(), format!("audio={device}")]);
+            args.extend([
+                "-f".into(),
+                "dshow".into(),
+                "-i".into(),
+                format!("audio={device}"),
+            ]);
         }
-        CaptureBackend::FfmpegOverride { args: override_args } => {
+        CaptureBackend::FfmpegOverride {
+            args: override_args,
+        } => {
             args.extend(override_args.clone());
         }
         CaptureBackend::Cpal { .. } => {}
@@ -351,7 +374,12 @@ impl LoopbackCapture {
 
         for preset in ffmpeg_presets(&config) {
             let args = ffmpeg_args(&preset);
-            match spawn_ffmpeg(&args, tx.clone(), config.chunk_samples.max(1), config.probe_timeout_ms) {
+            match spawn_ffmpeg(
+                &args,
+                tx.clone(),
+                config.chunk_samples.max(1),
+                config.probe_timeout_ms,
+            ) {
                 Ok((child, handle)) => {
                     info!(backend = %preset.label(), "captura ffmpeg iniciada");
                     return Ok(Self {
@@ -411,7 +439,10 @@ fn spawn_ffmpeg(
         .stderr(Stdio::null())
         .spawn()
         .map_err(|error| AudioError::Ffmpeg(error.to_string()))?;
-    let mut stdout = child.stdout.take().ok_or_else(|| AudioError::Ffmpeg("stdout indisponível".into()))?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| AudioError::Ffmpeg("stdout indisponível".into()))?;
     let handle = std::thread::spawn(move || {
         let mut pending = Vec::with_capacity(chunk_samples * 2);
         let mut buffer = [0u8; 4096];
@@ -428,7 +459,9 @@ fn spawn_ffmpeg(
                 let frame_bytes: Vec<u8> = pending.drain(..bytes).collect();
                 let samples: Vec<i16> = (0..bytes)
                     .step_by(2)
-                    .map(|indice| i16::from_le_bytes([frame_bytes[indice], frame_bytes[indice + 1]]))
+                    .map(|indice| {
+                        i16::from_le_bytes([frame_bytes[indice], frame_bytes[indice + 1]])
+                    })
                     .collect();
                 let chunk = AudioChunk {
                     samples,

@@ -29,5 +29,7 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(endereco)
         .await
         .expect("falha ao abrir porta do backend");
-    axum::serve(listener, router).await.expect("falha no servidor axum");
+    axum::serve(listener, router)
+        .await
+        .expect("falha no servidor axum");
 }

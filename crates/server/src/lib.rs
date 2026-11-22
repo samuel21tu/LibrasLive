@@ -41,7 +41,7 @@ use libraslive_audio::vad::{
     create_vad, EnergyVad, VadConfig, VadDetector, VadEvent, VoiceActivitySegmenter,
 };
 use libraslive_stt::{SttConfig, TranscriptionEvent, WhisperStream};
-use metrics::{LatencyStats, LatencySnapshot};
+use metrics::{LatencySnapshot, LatencyStats};
 use serde::Deserialize;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -106,14 +106,17 @@ pub fn load_lexicon() -> LexiconResponse {
             }
             Err(erro) => warn!(error = %erro, "léxico inválido; usando léxico embutido"),
         },
-        Err(erro) => warn!(error = %erro, caminho = %caminho.display(), "arquivo de léxico não encontrado; usando léxico embutido do nlp"),
+        Err(erro) => {
+            warn!(error = %erro, caminho = %caminho.display(), "arquivo de léxico não encontrado; usando léxico embutido do nlp")
+        }
     }
     libraslive_nlp::carregar_lexicon()
 }
 
 pub fn build_state() -> AppState {
     let lexicon = Arc::new(load_lexicon());
-    let base = PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".into())).join(".libraslive");
+    let base =
+        PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".into())).join(".libraslive");
     let history = Arc::new(
         HistoryStore::open(&base.join("history.sqlite"), base.join("config.json"))
             .expect("falha ao abrir SQLite do histórico"),
@@ -138,7 +141,12 @@ pub fn build_state() -> AppState {
     let (stt, rx, model_label, degraded) = match WhisperStream::create(config) {
         Ok((stream, receiver)) => {
             let rotulo = stream.describe();
-            (Some(Arc::new(StdMutex::new(stream))), Some(receiver), rotulo, false)
+            (
+                Some(Arc::new(StdMutex::new(stream))),
+                Some(receiver),
+                rotulo,
+                false,
+            )
         }
         Err(erro) => {
             error!(error = %erro, "STT indisponível; use LIBRASLIVE_DEMO_STT=1 para testar sem modelo");
@@ -232,8 +240,14 @@ async fn pipeline_loop(mut receiver: UnboundedReceiver<TranscriptionEvent>, stat
             TranscriptionEvent::Partial { text, latency_ms } => {
                 vec![WsEvent::Partial { text, latency_ms }]
             }
-            TranscriptionEvent::Error { message, latency_ms } => {
-                vec![WsEvent::Error { message, latency_ms }]
+            TranscriptionEvent::Error {
+                message,
+                latency_ms,
+            } => {
+                vec![WsEvent::Error {
+                    message,
+                    latency_ms,
+                }]
             }
             TranscriptionEvent::Final { text, latency_ms } => {
                 let inicio = Instant::now();
@@ -241,7 +255,11 @@ async fn pipeline_loop(mut receiver: UnboundedReceiver<TranscriptionEvent>, stat
                 let gloss_latency_ms = latency_ms + inicio.elapsed().as_millis() as u64;
                 state.metrics.record(gloss_latency_ms);
                 if let Ok(valor) = serde_json::to_value(&gloss) {
-                    if let Err(erro) = state.history.add_transcript(&text, &valor, gloss_latency_ms, "system") {
+                    if let Err(erro) =
+                        state
+                            .history
+                            .add_transcript(&text, &valor, gloss_latency_ms, "system")
+                    {
                         error!(error = %erro, "falha ao persistir transcrição");
                     }
                 }
@@ -253,7 +271,10 @@ async fn pipeline_loop(mut receiver: UnboundedReceiver<TranscriptionEvent>, stat
                 );
                 vec![
                     WsEvent::Final { text, latency_ms },
-                    WsEvent::Gloss { gloss, latency_ms: gloss_latency_ms },
+                    WsEvent::Gloss {
+                        gloss,
+                        latency_ms: gloss_latency_ms,
+                    },
                 ]
             }
         };
@@ -273,7 +294,9 @@ async fn capture_loop(state: AppState) {
         }
 
         let config = CaptureConfig::default();
-        let captura = match tokio::task::spawn_blocking(move || LoopbackCapture::start(config)).await {
+        let captura = match tokio::task::spawn_blocking(move || LoopbackCapture::start(config))
+            .await
+        {
             Ok(Ok(captura)) => captura,
             Ok(Err(erro)) => {
                 error!(error = %erro, "captura de áudio do sistema falhou; áudio via WebSocket continua disponível");
@@ -305,8 +328,12 @@ async fn capture_loop(state: AppState) {
                     Ok(mut segmentador) => segmentador.feed(&chunk.samples),
                     Err(_) => Vec::new(),
                 };
-                let iniciou = eventos.iter().any(|evento| matches!(evento, VadEvent::SpeechStart { .. }));
-                let terminou = eventos.iter().any(|evento| matches!(evento, VadEvent::SpeechEnd { .. }));
+                let iniciou = eventos
+                    .iter()
+                    .any(|evento| matches!(evento, VadEvent::SpeechStart { .. }));
+                let terminou = eventos
+                    .iter()
+                    .any(|evento| matches!(evento, VadEvent::SpeechEnd { .. }));
                 if let Some(stt) = &stt {
                     if let Ok(mut stt) = stt.lock() {
                         if iniciou {
@@ -454,7 +481,11 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     let mut eventos = state.broadcast.subscribe();
     let emissor = tokio::spawn(async move {
         while let Ok(evento) = eventos.recv().await {
-            if sink.send(Message::Text(evento.to_json().into())).await.is_err() {
+            if sink
+                .send(Message::Text(evento.to_json().into()))
+                .await
+                .is_err()
+            {
                 break;
             }
         }
@@ -498,7 +529,9 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                             let frame = &bytes[inicio..inicio + FRAME_BYTES];
                             let amostras: Vec<i16> = (0..FRAME_BYTES)
                                 .step_by(2)
-                                .map(|indice| i16::from_le_bytes([frame[indice], frame[indice + 1]]))
+                                .map(|indice| {
+                                    i16::from_le_bytes([frame[indice], frame[indice + 1]])
+                                })
                                 .collect();
                             guard.push_chunk(&amostras);
                         }
@@ -566,8 +599,11 @@ mod tests {
             }),
             converter: Arc::new(LexiconConverter),
             history: Arc::new(
-                HistoryStore::open(Path::new(":memory:"), std::env::temp_dir().join("libraslive-test-config.json"))
-                    .unwrap(),
+                HistoryStore::open(
+                    Path::new(":memory:"),
+                    std::env::temp_dir().join("libraslive-test-config.json"),
+                )
+                .unwrap(),
             ),
             metrics: Arc::new(LatencyStats::default()),
             model_label: "demo-test".into(),
@@ -578,11 +614,18 @@ mod tests {
     #[tokio::test]
     async fn health_respeita_contrato_e_reporta_vad_real() {
         let resposta = create_router(estado_de_teste())
-            .oneshot(axum::http::Request::builder().uri("/health").body(axum::body::Body::empty()).unwrap())
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/health")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(resposta.status(), 200);
-        let corpo = axum::body::to_bytes(resposta.into_body(), usize::MAX).await.unwrap();
+        let corpo = axum::body::to_bytes(resposta.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&corpo).unwrap();
         assert_eq!(json["status"], "ok");
         assert_eq!(json["modelo"], "demo-test");
@@ -596,16 +639,29 @@ mod tests {
         let router = create_router(estado.clone());
         let resposta = router
             .clone()
-            .oneshot(axum::http::Request::builder().method("POST").uri("/capture/stop").body(axum::body::Body::empty()).unwrap())
+            .oneshot(
+                axum::http::Request::builder()
+                    .method("POST")
+                    .uri("/capture/stop")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(resposta.status(), 200);
         assert!(!estado.audio.enabled.load(Ordering::Relaxed));
         let resposta = router
-            .oneshot(axum::http::Request::builder().uri("/capture/status").body(axum::body::Body::empty()).unwrap())
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/capture/status")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
-        let corpo = axum::body::to_bytes(resposta.into_body(), usize::MAX).await.unwrap();
+        let corpo = axum::body::to_bytes(resposta.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&corpo).unwrap();
         assert_eq!(json["estado"], "desabilitado");
     }
@@ -618,20 +674,35 @@ mod tests {
 
         let status0 = router
             .clone()
-            .oneshot(axum::http::Request::builder().uri("/capture/status").body(axum::body::Body::empty()).unwrap())
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/capture/status")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
-        let corpo0 = axum::body::to_bytes(status0.into_body(), usize::MAX).await.unwrap();
+        let corpo0 = axum::body::to_bytes(status0.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json0: serde_json::Value = serde_json::from_slice(&corpo0).unwrap();
         assert_eq!(json0["task_running"], false);
         assert_eq!(json0["starts"], 0);
 
         let iniciar = |router: Router| async move {
             let resposta = router
-                .oneshot(axum::http::Request::builder().method("POST").uri("/capture/start").body(axum::body::Body::empty()).unwrap())
+                .oneshot(
+                    axum::http::Request::builder()
+                        .method("POST")
+                        .uri("/capture/start")
+                        .body(axum::body::Body::empty())
+                        .unwrap(),
+                )
                 .await
                 .unwrap();
-            let corpo = axum::body::to_bytes(resposta.into_body(), usize::MAX).await.unwrap();
+            let corpo = axum::body::to_bytes(resposta.into_body(), usize::MAX)
+                .await
+                .unwrap();
             serde_json::from_slice::<serde_json::Value>(&corpo).unwrap()
         };
 
@@ -640,12 +711,22 @@ mod tests {
 
         let status1 = router
             .clone()
-            .oneshot(axum::http::Request::builder().uri("/capture/status").body(axum::body::Body::empty()).unwrap())
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/capture/status")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
-        let corpo1 = axum::body::to_bytes(status1.into_body(), usize::MAX).await.unwrap();
+        let corpo1 = axum::body::to_bytes(status1.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json1: serde_json::Value = serde_json::from_slice(&corpo1).unwrap();
-        assert_eq!(json1["task_running"], true, "captura deve estar em execução");
+        assert_eq!(
+            json1["task_running"], true,
+            "captura deve estar em execução"
+        );
         assert_eq!(json1["starts"], 1);
 
         // Segundo start não deve criar outra task (idempotente).
@@ -653,16 +734,29 @@ mod tests {
         assert_eq!(segundo["iniciada"], false);
         let status2 = router
             .clone()
-            .oneshot(axum::http::Request::builder().uri("/capture/status").body(axum::body::Body::empty()).unwrap())
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/capture/status")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
-        let corpo2 = axum::body::to_bytes(status2.into_body(), usize::MAX).await.unwrap();
+        let corpo2 = axum::body::to_bytes(status2.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json2: serde_json::Value = serde_json::from_slice(&corpo2).unwrap();
         assert_eq!(json2["starts"], 1);
         assert_eq!(json2["task_running"], true);
 
         let parar = router
-            .oneshot(axum::http::Request::builder().method("POST").uri("/capture/stop").body(axum::body::Body::empty()).unwrap())
+            .oneshot(
+                axum::http::Request::builder()
+                    .method("POST")
+                    .uri("/capture/stop")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(parar.status(), 200);
@@ -726,10 +820,17 @@ mod tests {
     #[tokio::test]
     async fn lexicon_devolve_versao_e_sinais() {
         let resposta = create_router(estado_de_teste())
-            .oneshot(axum::http::Request::builder().uri("/lexicon").body(axum::body::Body::empty()).unwrap())
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/lexicon")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
-        let corpo = axum::body::to_bytes(resposta.into_body(), usize::MAX).await.unwrap();
+        let corpo = axum::body::to_bytes(resposta.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&corpo).unwrap();
         assert_eq!(json["versao"], "teste-1");
         assert!(json["sinais"].is_array());

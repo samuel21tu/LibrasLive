@@ -1,0 +1,14 @@
+# LibrasLive — dependências do backend (PINADAS, offline após a instalação)
+# Recomendado: Python 3.11–3.12. Em Python 3.13+, use estas versões (testado em 3.14).
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.34
+numpy==2.5.5
+faster-whisper==1.2.1
+ctranslate2==4.9.1
+silero-vad==6.2.3
+onnxruntime==1.32.0
+
+# Testes / clientes HTTP (opcional em produção)
+httpx==0.28.1
+pytest==9.2.0

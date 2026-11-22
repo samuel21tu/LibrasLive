@@ -1,0 +1,22 @@
+[package]
+name = "libraslive"
+description = "Overlay de LIBRAS em tempo real (shell Tauri 2)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "libraslive_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+tauri = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+axum = "0.8"
+tokio = { version = "1", features = ["net", "rt"] }
+libraslive-server = { path = "../crates/server" }

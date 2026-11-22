@@ -1,0 +1,17 @@
+[package]
+name = "libraslive-audio"
+version = "0.1.0"
+edition = "2021"
+description = "Loopback audio capture (PipeWire/Pulse, WASAPI, ffmpeg) and incremental VAD for LibrasLive"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+cpal = "0.18"
+crossbeam-channel = "0.5"
+thiserror = "2"
+tracing = "0.1"
+ort = { version = "2.0.0-rc.15", optional = true }
+
+[features]
+default = ["silero"]
+silero = ["dep:ort"]

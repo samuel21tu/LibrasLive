@@ -1,0 +1,41 @@
+node_modules/
+dist/
+release/
+.vite/
+*.local
+*.log
+.DS_Store
+Thumbs.db
+
+# Rust
+target/
+**/target/
+*.rs.bk
+Cargo.lock.bak
+
+# Tauri
+src-tauri/gen/schemas/
+src-tauri/gen/android/app/build/
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/local.properties
+src-tauri/gen/android/build/
+src-tauri/gen/apple/build/
+
+# Python (legado em docs/legado; nao versionar caches)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Modelos locais (baixados uma vez, nunca versionados)
+models/*.bin
+models/*.onnx
+
+# Credenciais e configuracoes locais
+.env
+.env.*
+local.properties
+*.pem
+*.key
+credentials.json
+client_secret*.json

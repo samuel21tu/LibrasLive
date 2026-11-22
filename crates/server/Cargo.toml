@@ -1,0 +1,24 @@
+[package]
+name = "libraslive-server"
+version = "0.1.0"
+edition = "2021"
+description = "axum backend: WebSocket /stream (6.3), /lexicon, /health, SQLite history"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+thiserror = "2"
+libraslive-stt = { path = "../stt" }
+libraslive-nlp = { path = "../nlp" }
+libraslive-audio = { path = "../audio" }
+futures = "0.3"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+tokio-tungstenite = "0.30"

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0b1420" />
+    <title>LibrasLive</title>
+    <style>
+      html, body, #root { width: 100%; height: 100%; margin: 0; padding: 0; }
+      html, body { background: transparent; overflow: hidden; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!--
+      Bridge canonica: window.librasHost (Contrato em src/renderer/host.ts).
+      Todos os argumentos sao camelCase; o Tauri 2 converte para snake_case
+      antes de chamar os comandos Rust em src-tauri/src/lib.rs.
+      window.electronAPI permanece como alias DEPRECADO para compatibilidade.
+    -->
+    <script type="module">
+      import { invoke } from "@tauri-apps/api/core";
+
+      const fire = (command, args) => {
+        void invoke(command, args).catch(() => {});
+      };
+
+      const host = {
+        isTauri: true,
+
+        getConfig: () => invoke("get_config").catch(() => null),
+        setConfig: (config) => fire("set_config", { config }),
+        setAlwaysOnTop: (value) => fire("set_always_on_top", { value }),
+        setOpacity: (opacity) => fire("set_opacity", { opacity }),
+        resize: (width, height) => fire("resize_window", { width, height }),
+        moveCorner: (corner) => fire("move_corner", { corner }),
+        cycleCorner: () => fire("cycle_corner"),
+        setIgnoreMouse: (ignore) => fire("set_ignore_mouse", { ignore }),
+        minimize: () => fire("minimize"),
+        close: () => fire("close_window"),
+        drag: (deltaX, deltaY) => fire("drag_window", { deltaX, deltaY }),
+        startBackend: () => fire("start_backend"),
+
+        getState: () => invoke("get_state").catch(() => null),
+      };
+
+      window.librasHost = host;
+      window.electronAPI = host;
+    </script>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
